@@ -38,7 +38,7 @@ struct Settings
     string_map templateVars;
 
     //generator settings
-    bool generatorMode = false;
+    bool generatorMode = true;
     std::string generateProfiles;
 
     //preferences

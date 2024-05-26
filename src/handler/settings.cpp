@@ -4,8 +4,10 @@
 
 #include "config/binding.h"
 #include "handler/webget.h"
+#ifdef ENABLE_WEB_SERVER
 #include "script/cron.h"
 #include "server/webserver.h"
+#endif
 #include "utils/logger.h"
 #include "utils/network.h"
 #include "interfaces.h"
@@ -16,9 +18,9 @@
 std::mutex gMutexConfigure;
 
 Settings global;
-
+#ifdef ENABLE_WEB_SERVER
 extern WebServer webServer;
-
+#endif
 const std::map<std::string, ruleset_type> RulesetTypes = {{"clash-domain:", RULESET_CLASH_DOMAIN}, {"clash-ipcidr:", RULESET_CLASH_IPCIDR}, {"clash-classic:", RULESET_CLASH_CLASSICAL}, \
             {"quanx:", RULESET_QUANX}, {"surge:", RULESET_SURGE}};
 
@@ -467,6 +469,7 @@ void readYAMLConf(YAML::Node &node)
         }
     }
 
+#ifdef ENABLE_WEB_SERVER
     if(node["aliases"].IsSequence())
     {
         webServer.reset_redirect();
@@ -478,7 +481,7 @@ void readYAMLConf(YAML::Node &node)
             webServer.append_redirect(uri, target);
         }
     }
-
+#endif
     if(node["tasks"].IsSequence())
     {
         string_array vArray;
@@ -501,9 +504,12 @@ void readYAMLConf(YAML::Node &node)
         importItems(vArray, false);
         global.enableCron = !vArray.empty();
         global.cronTasks = INIBinding::from<CronTaskConfig>::from_ini(vArray);
+#ifdef ENABLE_WEB_SERVER
         refresh_schedule();
+#endif
     }
 
+#ifdef ENABLE_WEB_SERVER
     if(node["server"].IsDefined())
     {
         node["server"]["listen"] >> global.listenAddress;
@@ -511,6 +517,7 @@ void readYAMLConf(YAML::Node &node)
         node["server"]["serve_file_root"] >>= webServer.serve_file_root;
         webServer.serve_file = !webServer.serve_file_root.empty();
     }
+#endif
 
     if(node["advanced"].IsDefined())
     {
@@ -699,16 +706,18 @@ void readTOMLConf(toml::value &root)
     {
         global.templateVars[key.as_string()] = value.as_string();
     });
-
+#ifdef ENABLE_WEB_SERVER
     webServer.reset_redirect();
     operate_toml_kv_table(toml::find_or<std::vector<toml::table>>(root, "aliases", {}), "uri", "target", [&](const toml::value &key, const toml::value &value)
     {
         webServer.append_redirect(key.as_string(), value.as_string());
     });
+#endif
 
     auto tasks = toml::find_or<std::vector<toml::value>>(root, "tasks", {});
     importItems(tasks, "tasks", false);
     global.cronTasks = toml::get<CronTaskConfigs>(toml::value(tasks));
+#ifdef ENABLE_WEB_SERVER
     refresh_schedule();
 
     auto section_server = toml::find(root, "server");
@@ -719,6 +728,7 @@ void readTOMLConf(toml::value &root)
                   "serve_file_root", webServer.serve_file_root
     );
     webServer.serve_file = !webServer.serve_file_root.empty();
+#endif
 
     auto section_advanced = toml::find(root, "advanced");
 
@@ -992,6 +1002,7 @@ void readConf()
     }
     global.templateVars["managed_config_prefix"] = global.managedConfigPrefix;
 
+#ifdef ENABLE_WEB_SERVER
     if(ini.section_exist("aliases"))
     {
         ini.enter_section("aliases");
@@ -1017,6 +1028,7 @@ void readConf()
     ini.get_int_if_exist("port", global.listenPort);
     webServer.serve_file_root = ini.get("serve_file_root");
     webServer.serve_file = !webServer.serve_file_root.empty();
+#endif
 
     ini.enter_section("advanced");
     std::string log_level;

@@ -10,9 +10,11 @@
 #include "handler/interfaces.h"
 #include "handler/webget.h"
 #include "handler/settings.h"
+#ifdef ENABLE_WEB_SERVER
 #include "script/cron.h"
 #include "server/socket.h"
 #include "server/webserver.h"
+#endif
 #include "utils/defer.h"
 #include "utils/file_extra.h"
 #include "utils/logger.h"
@@ -23,8 +25,9 @@
 #include "version.h"
 
 //#include "vfs.h"
-
+#ifdef ENABLE_WEB_SERVER
 WebServer webServer;
+#endif
 
 #ifndef _WIN32
 void SetConsoleTitle(const std::string &title)
@@ -102,16 +105,20 @@ void signal_handler(int sig)
 #endif // _WIN32
     case SIGTERM:
     case SIGINT:
+#ifdef ENABLE_WEB_SERVER
         webServer.stop_web_server();
+#endif
         break;
     }
 }
 
+#ifdef ENABLE_WEB_SERVER
 void cron_tick_caller()
 {
     if(global.enableCron)
         cron_tick();
 }
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -183,7 +190,7 @@ int main(int argc, char *argv[])
         return "subconverter " VERSION " backend\n";
     });
     */
-
+#ifdef ENABLE_WEB_SERVER
     webServer.append_response("GET", "/version", "text/plain", [](RESPONSE_CALLBACK_ARGS) -> std::string
     {
         return "subconverter " VERSION " backend\n";
@@ -299,6 +306,7 @@ int main(int argc, char *argv[])
     //std::cout<<"Serving HTTP @ http://"<<listen_address<<":"<<listen_port<<std::endl;
     writeLog(0, "Startup completed. Serving HTTP @ http://" + global.listenAddress + ":" + std::to_string(global.listenPort), LOG_LEVEL_INFO);
     webServer.start_web_server_multi(&args);
+#endif
 
 #ifdef _WIN32
     WSACleanup();
