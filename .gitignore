@@ -5,3 +5,5 @@ cmake-build-debug
 base/cache
 deps
 build
+CMakeUserPresets.json
+*/**/CMakeFiles
