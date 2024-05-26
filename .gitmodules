@@ -1,0 +1,6 @@
+[submodule "libcron"]
+	path = libcron
+	url = https://github.com/PerMalmberg/libcron
+[submodule "quickjspp"]
+	path = quickjspp
+	url = https://github.com/ftk/quickjspp
