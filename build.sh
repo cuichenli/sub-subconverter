@@ -25,3 +25,4 @@ cmake --build . || true
 
 LINK_COMMAND=$(cat ./CMakeFiles/subconverter.dir/link.txt)
 eval "${LINK_COMMAND} -l:quickjs/libquickjs.a" 
+popd
