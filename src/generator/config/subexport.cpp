@@ -9,7 +9,6 @@
 #include "generator/template/templates.h"
 #include "handler/settings.h"
 #include "parser/config/proxy.h"
-#include "script/script_quickjs.h"
 #include "utils/bitwise.h"
 #include "utils/file_extra.h"
 #include "utils/ini_reader/ini_reader.h"
@@ -196,23 +195,23 @@ void groupGenerate(const std::string &rule, std::vector<Proxy> &nodelist, string
         filtered_nodelist.emplace_back(rule.substr(2));
     }
 #ifndef NO_JS_RUNTIME
-    else if(startsWith(rule, "script:") && ext.authorized)
-    {
-        script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx){
-            std::string script = fileGet(rule.substr(7), true);
-            try
-            {
-                ctx.eval(script);
-                auto filter = (std::function<std::string(const std::vector<Proxy>&)>) ctx.eval("filter");
-                std::string result_list = filter(nodelist);
-                filtered_nodelist = split(regTrim(result_list), "\n");
-            }
-            catch (qjs::exception)
-            {
-                script_print_stack(ctx);
-            }
-        }, global.scriptCleanContext);
-    }
+    // else if(startsWith(rule, "script:") && ext.authorized)
+    // {
+    //     script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx){
+    //         std::string script = fileGet(rule.substr(7), true);
+    //         try
+    //         {
+    //             ctx.eval(script);
+    //             auto filter = (std::function<std::string(const std::vector<Proxy>&)>) ctx.eval("filter");
+    //             std::string result_list = filter(nodelist);
+    //             filtered_nodelist = split(regTrim(result_list), "\n");
+    //         }
+    //         catch (qjs::exception)
+    //         {
+    //             script_print_stack(ctx);
+    //         }
+    //     }, global.scriptCleanContext);
+    // }
 #endif // NO_JS_RUNTIME
     else
     {

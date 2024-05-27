@@ -10,8 +10,9 @@
 #include "generator/config/ruleconvert.h"
 #include "generator/config/subexport.h"
 #include "generator/template/templates.h"
-#include "script/script_quickjs.h"
+#ifdef ENABLE_WEB_SERVER
 #include "server/webserver.h"
+#endif
 #include "utils/base64/base64.h"
 #include "utils/file_extra.h"
 #include "utils/ini_reader/ini_reader.h"
@@ -29,8 +30,9 @@
 #include "upload.h"
 #include "webget.h"
 
+#ifdef ENABLE_WEB_SERVER
 extern WebServer webServer;
-
+#endif
 string_array gRegexBlacklist = {"(.*)*"};
 
 std::string parseProxy(const std::string &source)
@@ -535,15 +537,15 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
         lIncludeRemarks = string_array{argIncludeRemark};
     if(!argExcludeRemark.empty() && regValid(argExcludeRemark))
         lExcludeRemarks = string_array{argExcludeRemark};
-
+    
     /// initialize script runtime
-    if(authorized && !global.scriptCleanContext)
-    {
-        ext.js_runtime = new qjs::Runtime();
-        script_runtime_init(*ext.js_runtime);
-        ext.js_context = new qjs::Context(*ext.js_runtime);
-        script_context_init(*ext.js_context);
-    }
+    // if(authorized && !global.scriptCleanContext)
+    // {
+    //     ext.js_runtime = new qjs::Runtime();
+    //     script_runtime_init(*ext.js_runtime);
+    //     ext.js_context = new qjs::Context(*ext.js_runtime);
+    //     script_context_init(*ext.js_context);
+    // }
 
     //start parsing urls
     RegexMatchConfigs stream_temp = safe_get_streams(), time_temp = safe_get_times();
@@ -562,8 +564,8 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
     parse_set.sub_info = &subInfo;
     parse_set.authorized = authorized;
     parse_set.request_header = &request.headers;
-    parse_set.js_runtime = ext.js_runtime;
-    parse_set.js_context = ext.js_context;
+    // parse_set.js_runtime = ext.js_runtime;
+    // parse_set.js_context = ext.js_context;
 
     if(!global.insertUrls.empty() && argEnableInsert)
     {
@@ -660,19 +662,19 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
             }
         }
         */
-        script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
-        {
-            try
-            {
-                ctx.eval(filterScript);
-                auto filter = (std::function<bool(const Proxy&)>) ctx.eval("filter");
-                nodes.erase(std::remove_if(nodes.begin(), nodes.end(), filter), nodes.end());
-            }
-            catch(qjs::exception)
-            {
-                script_print_stack(ctx);
-            }
-        }, global.scriptCleanContext);
+        // script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
+        // {
+        //     try
+        //     {
+        //         ctx.eval(filterScript);
+        //         auto filter = (std::function<bool(const Proxy&)>) ctx.eval("filter");
+        //         nodes.erase(std::remove_if(nodes.begin(), nodes.end(), filter), nodes.end());
+        //     }
+        //     catch(qjs::exception)
+        //     {
+        //         script_print_stack(ctx);
+        //     }
+        // }, global.scriptCleanContext);
     }
 
     //check custom group name

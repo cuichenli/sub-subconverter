@@ -5,9 +5,6 @@
 #include <vector>
 #include <limits.h>
 
-#ifndef NO_JS_RUNTIME
-#include <quickjspp.hpp>
-#endif // NO_JS_RUNTIME
 
 #include "config/regmatch.h"
 #include "parser/config/proxy.h"
@@ -25,9 +22,10 @@ struct parse_settings
     bool authorized = false;
     string_icase_map *request_header = nullptr;
 #ifndef NO_JS_RUNTIME
-    qjs::Runtime *js_runtime = nullptr;
-    qjs::Context *js_context = nullptr;
+    // qjs::Runtime *js_runtime = nullptr;
+    // qjs::Context *js_context = nullptr;
 #endif // NO_JS_RUNTIME
+
 };
 
 int addNodes(std::string link, std::vector<Proxy> &allNodes, int groupID, parse_settings &parse_set);

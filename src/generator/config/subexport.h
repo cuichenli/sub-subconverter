@@ -4,7 +4,6 @@
 #include <string>
 
 #ifndef NO_JS_RUNTIME
-#include <quickjspp.hpp>
 #endif // NO_JS_RUNTIME
 
 #include "config/proxygroup.h"
@@ -47,14 +46,14 @@ struct extra_settings
     extra_settings(extra_settings&&) = delete;
 
 #ifndef NO_JS_RUNTIME
-    qjs::Runtime *js_runtime = nullptr;
-    qjs::Context *js_context = nullptr;
+    // qjs::Runtime *js_runtime = nullptr;
+    // qjs::Context *js_context = nullptr;
 
-    ~extra_settings()
-    {
-        delete js_context;
-        delete js_runtime;
-    }
+    // ~extra_settings()
+    // {
+    //     delete js_context;
+    //     delete js_runtime;
+    // }
 #endif // NO_JS_RUNTIME
 };
 

@@ -8,7 +8,6 @@
 #include "parser/config/proxy.h"
 #include "parser/infoparser.h"
 #include "parser/subparser.h"
-#include "script/script_quickjs.h"
 #include "utils/file_extra.h"
 #include "utils/logger.h"
 #include "utils/map_extra.h"
@@ -51,44 +50,44 @@ int addNodes(std::string link, std::vector<Proxy> &allNodes, int groupID, parse_
     link = replaceAllDistinct(link, "\"", "");
 
     /// script:filepath,arg1,arg2,...
-    if(authorized) script_safe_runner(parse_set.js_runtime, parse_set.js_context, [&](qjs::Context &ctx)
-    {
-        if(startsWith(link, "script:")) /// process subscription with script
-        {
-            writeLog(0, "Found script link. Start running...", LOG_LEVEL_INFO);
-            string_array args = split(link.substr(7), ",");
-            if(args.size() >= 1)
-            {
-                std::string script = fileGet(args[0], false);
-                try
-                {
-                    ctx.eval(script);
-                    args.erase(args.begin()); /// remove script path
-                    auto parse = (std::function<std::string(const std::string&, const string_array&)>) ctx.eval("parse");
-                    switch(args.size())
-                    {
-                    case 0:
-                        link = parse("", string_array());
-                        break;
-                    case 1:
-                        link = parse(args[0], string_array());
-                        break;
-                    default:
-                        {
-                            std::string first = args[0];
-                            args.erase(args.begin());
-                            link = parse(first, args);
-                            break;
-                        }
-                    }
-                }
-                catch(qjs::exception)
-                {
-                    script_print_stack(ctx);
-                }
-            }
-        }
-    }, global.scriptCleanContext);
+    // if(authorized) script_safe_runner(parse_set.js_runtime, parse_set.js_context, [&](qjs::Context &ctx)
+    // {
+    //     if(startsWith(link, "script:")) /// process subscription with script
+    //     {
+    //         writeLog(0, "Found script link. Start running...", LOG_LEVEL_INFO);
+    //         string_array args = split(link.substr(7), ",");
+    //         if(args.size() >= 1)
+    //         {
+    //             std::string script = fileGet(args[0], false);
+    //             try
+    //             {
+    //                 ctx.eval(script);
+    //                 args.erase(args.begin()); /// remove script path
+    //                 auto parse = (std::function<std::string(const std::string&, const string_array&)>) ctx.eval("parse");
+    //                 switch(args.size())
+    //                 {
+    //                 case 0:
+    //                     link = parse("", string_array());
+    //                     break;
+    //                 case 1:
+    //                     link = parse(args[0], string_array());
+    //                     break;
+    //                 default:
+    //                     {
+    //                         std::string first = args[0];
+    //                         args.erase(args.begin());
+    //                         link = parse(first, args);
+    //                         break;
+    //                     }
+    //                 }
+    //             }
+    //             catch(qjs::exception)
+    //             {
+    //                 script_print_stack(ctx);
+    //             }
+    //         }
+    //     }
+    // }, global.scriptCleanContext);
             /*
             duk_context *ctx = duktape_init();
             defer(duk_destroy_heap(ctx);)
@@ -380,28 +379,28 @@ void nodeRename(Proxy &node, const RegexMatchConfigs &rename_array, extra_settin
 
     for(const RegexMatchConfig &x : rename_array)
     {
-        if(!x.Script.empty() && ext.authorized)
-        {
-            script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
-            {
-                std::string script = x.Script;
-                if(startsWith(script, "path:"))
-                    script = fileGet(script.substr(5), true);
-                try
-                {
-                    ctx.eval(script);
-                    auto rename = (std::function<std::string(const Proxy&)>) ctx.eval("rename");
-                    returned_remark = rename(node);
-                    if(!returned_remark.empty())
-                        remark = returned_remark;
-                }
-                catch (qjs::exception)
-                {
-                    script_print_stack(ctx);
-                }
-            }, global.scriptCleanContext);
-            continue;
-        }
+        // if(!x.Script.empty() && ext.authorized)
+        // {
+        //     script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
+        //     {
+        //         std::string script = x.Script;
+        //         if(startsWith(script, "path:"))
+        //             script = fileGet(script.substr(5), true);
+        //         try
+        //         {
+        //             ctx.eval(script);
+        //             auto rename = (std::function<std::string(const Proxy&)>) ctx.eval("rename");
+        //             returned_remark = rename(node);
+        //             if(!returned_remark.empty())
+        //                 remark = returned_remark;
+        //         }
+        //         catch (qjs::exception)
+        //         {
+        //             script_print_stack(ctx);
+        //         }
+        //     }, global.scriptCleanContext);
+        //     continue;
+        // }
         if(applyMatcher(x.Match, real_rule, node) && real_rule.size())
             remark = regReplace(remark, real_rule, x.Replace);
     }
@@ -432,31 +431,31 @@ std::string addEmoji(const Proxy &node, const RegexMatchConfigs &emoji_array, ex
 
     for(const RegexMatchConfig &x : emoji_array)
     {
-        if(!x.Script.empty() && ext.authorized)
-        {
-            std::string result;
-            script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
-            {
-                std::string script = x.Script;
-                if(startsWith(script, "path:"))
-                    script = fileGet(script.substr(5), true);
-                try
-                {
-                    ctx.eval(script);
-                    auto getEmoji = (std::function<std::string(const Proxy&)>) ctx.eval("getEmoji");
-                    ret = getEmoji(node);
-                    if(!ret.empty())
-                        result = ret + " " + node.Remark;
-                }
-                catch (qjs::exception)
-                {
-                    script_print_stack(ctx);
-                }
-            }, global.scriptCleanContext);
-            if(!result.empty())
-                return result;
-            continue;
-        }
+        // if(!x.Script.empty() && ext.authorized)
+        // {
+        //     std::string result;
+        //     script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
+        //     {
+        //         std::string script = x.Script;
+        //         if(startsWith(script, "path:"))
+        //             script = fileGet(script.substr(5), true);
+        //         try
+        //         {
+        //             ctx.eval(script);
+        //             auto getEmoji = (std::function<std::string(const Proxy&)>) ctx.eval("getEmoji");
+        //             ret = getEmoji(node);
+        //             if(!ret.empty())
+        //                 result = ret + " " + node.Remark;
+        //         }
+        //         catch (qjs::exception)
+        //         {
+        //             script_print_stack(ctx);
+        //         }
+        //     }, global.scriptCleanContext);
+        //     if(!result.empty())
+        //         return result;
+        //     continue;
+        // }
         if(x.Replace.empty())
             continue;
         if(applyMatcher(x.Match, real_rule, node) && real_rule.size() && regFind(node.Remark, real_rule))
@@ -480,35 +479,36 @@ void preprocessNodes(std::vector<Proxy> &nodes, extra_settings &ext)
 
     if(ext.sort_flag)
     {
-        bool failed = true;
-        if(ext.sort_script.size() && ext.authorized)
-        {
-            std::string script = ext.sort_script;
-            if(startsWith(script, "path:"))
-                script = fileGet(script.substr(5), false);
-            script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
-            {
-                try
-                {
-                    ctx.eval(script);
-                    auto compare = (std::function<int(const Proxy&, const Proxy&)>) ctx.eval("compare");
-                    auto comparer = [&](const Proxy &a, const Proxy &b)
-                    {
-                        if(a.Type == ProxyType::Unknown)
-                            return 1;
-                        if(b.Type == ProxyType::Unknown)
-                            return 0;
-                        return compare(a, b);
-                    };
-                    std::stable_sort(nodes.begin(), nodes.end(), comparer);
-                    failed = false;
-                }
-                catch(qjs::exception)
-                {
-                    script_print_stack(ctx);
-                }
-            }, global.scriptCleanContext);
-        }
+        // bool failed = true;
+        // if(ext.sort_script.size() && ext.authorized)
+        // {
+        //     std::string script = ext.sort_script;
+        //     if(startsWith(script, "path:"))
+        //         script = fileGet(script.substr(5), false);
+        //     script_safe_runner(ext.js_runtime, ext.js_context, [&](qjs::Context &ctx)
+        //     {
+        //         try
+        //         {
+        //             ctx.eval(script);
+        //             auto compare = (std::function<int(const Proxy&, const Proxy&)>) ctx.eval("compare");
+        //             auto comparer = [&](const Proxy &a, const Proxy &b)
+        //             {
+        //                 if(a.Type == ProxyType::Unknown)
+        //                     return 1;
+        //                 if(b.Type == ProxyType::Unknown)
+        //                     return 0;
+        //                 return compare(a, b);
+        //             };
+        //             std::stable_sort(nodes.begin(), nodes.end(), comparer);
+        //             failed = false;
+        //         }
+        //         catch(qjs::exception)
+        //         {
+        //             script_print_stack(ctx);
+        //         }
+        //     }, global.scriptCleanContext);
+        // }
+        bool failed = false;
         if(failed) std::stable_sort(nodes.begin(), nodes.end(), [](const Proxy &a, const Proxy &b)
         {
             return a.Remark < b.Remark;
