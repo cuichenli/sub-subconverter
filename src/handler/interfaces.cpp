@@ -2,10 +2,16 @@
 #include <string>
 #include <mutex>
 #include <numeric>
+#include <vector> 
+#include <fstream>
 
 #include <yaml-cpp/yaml.h>
 
 #include <outcome.hpp>
+#include <cista.h>
+#include "../generated/messages.pb.h"
+// #include <emscripten/emscripten.h>
+
 
 #include "config/binding.h"
 #include "generator/config/nodemanip.h"
@@ -34,7 +40,13 @@
 #include "convertcontext.h"
 
 namespace outcome = OUTCOME_V2_NAMESPACE;
+namespace data = cista::raw;
 
+#ifdef __cplusplus
+#define EXTERN extern "C"
+#else
+#define EXTERN
+#endif
 
 #ifdef ENABLE_WEB_SERVER
 extern WebServer webServer;
@@ -165,7 +177,7 @@ std::string getRuleset(RESPONSE_CALLBACK_ARGS)
     refreshRulesets(confs, rca);
     for(RulesetContent &x : rca)
     {
-        std::string content = x.rule_content.get();
+        std::string content = x.rule_content;
         output_content += convertRuleset(content, x.rule_type);
     }
 
@@ -1864,7 +1876,7 @@ std::string renderTemplate(RESPONSE_CALLBACK_ARGS)
 void load_external_configs(convertcontext &context, extra_settings &ext, bool lSimpleSubscription, template_args tpl_args) 
 {   
     std::string  argExternalConfig = getUrlArg(context.init_argument, "config");
-    auto lConfigs = &base_configs(global);
+    auto lConfigs = base_configs(global);
 
     if(argExternalConfig.empty())
     argExternalConfig = global.defaultExtConfig;
@@ -1878,22 +1890,22 @@ void load_external_configs(convertcontext &context, extra_settings &ext, bool lS
         {
             if(!ext.nodelist)
             {
-                checkExternalBase(extconf.sssub_rule_base, lConfigs->SSSubBase);
+                checkExternalBase(extconf.sssub_rule_base, lConfigs.SSSubBase);
                 if(!lSimpleSubscription)
                 {
-                    checkExternalBase(extconf.clash_rule_base, lConfigs->clashBase);
-                    checkExternalBase(extconf.surge_rule_base, lConfigs->surgeBase);
-                    checkExternalBase(extconf.surfboard_rule_base, lConfigs->surfboardBase);
-                    checkExternalBase(extconf.mellow_rule_base, lConfigs->mellowBase);
-                    checkExternalBase(extconf.quan_rule_base, lConfigs->quanBase);
-                    checkExternalBase(extconf.quanx_rule_base, lConfigs->quanXBase);
-                    checkExternalBase(extconf.loon_rule_base, lConfigs->loonBase);
-                    checkExternalBase(extconf.singbox_rule_base, lConfigs->singBoxBase);
+                    checkExternalBase(extconf.clash_rule_base, lConfigs.clashBase);
+                    checkExternalBase(extconf.surge_rule_base, lConfigs.surgeBase);
+                    checkExternalBase(extconf.surfboard_rule_base, lConfigs.surfboardBase);
+                    checkExternalBase(extconf.mellow_rule_base, lConfigs.mellowBase);
+                    checkExternalBase(extconf.quan_rule_base, lConfigs.quanBase);
+                    checkExternalBase(extconf.quanx_rule_base, lConfigs.quanXBase);
+                    checkExternalBase(extconf.loon_rule_base, lConfigs.loonBase);
+                    checkExternalBase(extconf.singbox_rule_base, lConfigs.singBoxBase);
 
                     if(!extconf.surge_ruleset.empty())
-                        lConfigs->customRulesets = extconf.surge_ruleset;
+                        lConfigs.customRulesets = extconf.surge_ruleset;
                     if(!extconf.custom_proxy_group.empty())
-                        lConfigs->customProxyGroups = extconf.custom_proxy_group;
+                        lConfigs.customProxyGroups = extconf.custom_proxy_group;
                     ext.enable_rule_generator = extconf.enable_rule_generator;
                     ext.overwrite_original_rules = extconf.overwrite_original_rules;
                 }
@@ -1903,9 +1915,9 @@ void load_external_configs(convertcontext &context, extra_settings &ext, bool lS
             if(!extconf.emoji.empty())
                 ext.emoji_array = extconf.emoji;
             if(!extconf.include.empty())
-                lConfigs->includeRemarks = extconf.include;
+                lConfigs.includeRemarks = extconf.include;
             if(!extconf.exclude.empty())
-                lConfigs->excludeRemarks = extconf.exclude;
+                lConfigs.excludeRemarks = extconf.exclude;
             context.argAddEmoji.define(extconf.add_emoji);
             context.argRemoveEmoji.define(extconf.remove_old_emoji);
         }
@@ -1919,32 +1931,315 @@ void load_external_configs(convertcontext &context, extra_settings &ext, bool lS
             if(!argCustomGroups.empty() && !ext.nodelist)
             {
                 string_array vArray = split(argCustomGroups, "@");
-                lConfigs->customProxyGroups = INIBinding::from<ProxyGroupConfig>::from_ini(vArray);
+                lConfigs.customProxyGroups = INIBinding::from<ProxyGroupConfig>::from_ini(vArray);
             }
 
             /// loading custom rulesets
             if(!argCustomRulesets.empty() && !ext.nodelist)
             {
                 string_array vArray = split(argCustomRulesets, "@");
-                lConfigs->customRulesets = INIBinding::from<RulesetConfig>::from_ini(vArray);
+                lConfigs.customRulesets = INIBinding::from<RulesetConfig>::from_ini(vArray);
             }
         }
     }
 
     if(ext.enable_rule_generator && !ext.nodelist && !lSimpleSubscription)
     {
-        if(lConfigs->customRulesets != global.customRulesets)
-            refreshRulesets(lConfigs->customRulesets, lConfigs->rulesetContent);
+        if(lConfigs.customRulesets != global.customRulesets)
+            refreshRulesets(lConfigs.customRulesets, lConfigs.rulesetContent);
         else
         {
             if(global.updateRulesetOnRequest)
                 refreshRulesets(global.customRulesets, global.rulesetsContent);
-            lConfigs->rulesetContent = global.rulesetsContent;
+            lConfigs.rulesetContent = global.rulesetsContent;
         }
     }
 }
 
-std::string subconverter(convertcontext &context)
+// EXTERN EMSCRIPTEN_KEEPALIVE outcome::outcome<std::string, int> test() {
+//     return "ssss";
+// }
+
+// EXTERN EMSCRIPTEN_KEEPALIVE int atest() {
+//     return 121;
+// }
+
+// struct myclass {
+//     std::string m_str;
+//     std::vector<int> m_vec;
+//     // myclass() 
+//     // {
+//     //     this->m_str = "11";
+//     //     this->m_vec = {1, 2, 3, 4};
+//     // }
+//     // myclass() = default;
+//     MSGPACK_DEFINE(m_str, m_vec);
+// };
+
+// struct type_a {
+//     uint64_t name;
+//     std::vector<char> data;
+//     MSGPACK_DEFINE(name, data);
+// };
+
+// struct type_b {
+//     std::vector<type_a> obj_a;
+//     MSGPACK_DEFINE(obj_a);
+// };
+
+// struct type_c {
+//     char                id[16];
+//     std::vector<type_b> obj_b;
+//     MSGPACK_DEFINE(id, obj_b);
+// };
+
+
+
+// EXTERN EMSCRIPTEN_KEEPALIVE int mtest() {
+    
+//     myclass cl {
+//         "1213",
+//         {1, 2,3}
+//     };
+//     std::stringstream ss;
+//     msgpack::pack(ss, cl);
+
+//     auto const& str = ss.str();
+//     writeLog(0, "ohhhhhh", LOG_LEVEL_INFO);
+//     // printf("ahaha");
+//     // return 1;
+
+//     // auto oh = msgpack::unpack(str.data(), str.size());
+//     std::ofstream myfile;
+//     myfile.open ("/home/cuichen/personal/subconverter/example.txt");
+//     writeLog(0, "ohhhhhh12313131", LOG_LEVEL_INFO);
+//     myfile << str;
+
+//     myfile.close();
+
+//     return 0;
+// }
+
+outcome::outcome<std::string, int> do_convert(convertcontext &context, std::vector<Proxy> &nodes, extra_settings &ext, std::string argTarget, template_args &tpl_args)
+{
+    auto argument = context.init_argument;
+    ProxyGroupConfigs dummy_group;
+    std::vector<RulesetContent> dummy_ruleset;
+    std::string managed_url = base64Decode(getUrlArg(argument, "profile_data"));
+    if(managed_url.empty())
+        managed_url = global.managedConfigPrefix + "/sub?" + joinArguments(argument);
+
+    //std::cerr<<"Generate target: ";
+    std::string proxy = parseProxy(global.proxyConfig);
+    std::string argUploadPath = getUrlArg(argument, "upload_path");
+    std::string base_content, output_content;
+    std::string argUpdateInterval = getUrlArg(argument, "interval");
+    int interval = !argUpdateInterval.empty() ? to_int(argUpdateInterval, global.updateInterval) : global.updateInterval;
+    tribool argUpload = getUrlArg(argument, "upload");
+    std::string argUpdateStrict = getUrlArg(argument, "strict");
+    bool strict = !argUpdateStrict.empty() ? argUpdateStrict == "true" : global.updateStrict;
+
+    std::string argGroupName = getUrlArg(argument, "group");
+    std::string argSurgeVer = getUrlArg(argument, "ver");
+    int intSurgeVer = !argSurgeVer.empty() ? to_int(argSurgeVer, 3) : 3;
+
+    /// BUG? according to the original code, subInfo has never been set a value.
+    std::string subInfo;
+
+    switch(hash_(argTarget))
+    {
+    case "clash"_hash: case "clashr"_hash:
+        writeLog(0, argTarget == "clashr" ? "Generate target: ClashR" : "Generate target: Clash", LOG_LEVEL_INFO);
+        tpl_args.local_vars["clash.new_field_name"] = ext.clash_new_field_name ? "true" : "false";
+        if(ext.nodelist)
+        {
+            YAML::Node yamlnode;
+            proxyToClash(nodes, yamlnode, dummy_group, argTarget == "clashr", ext);
+            output_content = YAML::Dump(yamlnode);
+        }
+        else
+        {
+            if(render_template(fetchFile(context.configs.clashBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+            {
+                return base_content;
+            }
+            output_content = proxyToClash(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, argTarget == "clashr", ext);
+        }
+
+        if(argUpload)
+            uploadGist(argTarget, argUploadPath, output_content, false);
+        break;
+    case "surge"_hash:
+
+        writeLog(0, "Generate target: Surge " + std::to_string(intSurgeVer), LOG_LEVEL_INFO);
+
+        if(ext.nodelist)
+        {
+            output_content = proxyToSurge(nodes, base_content, dummy_ruleset, dummy_group, intSurgeVer, ext);
+
+            if(argUpload)
+                uploadGist("surge" + argSurgeVer + "list", argUploadPath, output_content, true);
+        }
+        else
+        {
+            if(render_template(fetchFile(context.configs.surgeBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+            {
+                return base_content;
+            }
+            output_content = proxyToSurge(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, intSurgeVer, ext);
+
+            if(argUpload)
+                uploadGist("surge" + argSurgeVer, argUploadPath, output_content, true);
+
+            if(global.writeManagedConfig && !global.managedConfigPrefix.empty())
+                output_content = "#!MANAGED-CONFIG " + managed_url + (interval ? " interval=" + std::to_string(interval) : "") \
+                 + " strict=" + std::string(strict ? "true" : "false") + "\n\n" + output_content;
+        }
+        break;
+    case "surfboard"_hash:
+        writeLog(0, "Generate target: Surfboard", LOG_LEVEL_INFO);
+
+        if(render_template(fetchFile(context.configs.surfboardBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+        {
+            return base_content;
+        }
+        output_content = proxyToSurge(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, -3, ext);
+        if(argUpload)
+            uploadGist("surfboard", argUploadPath, output_content, true);
+
+        if(global.writeManagedConfig && !global.managedConfigPrefix.empty())
+            output_content = "#!MANAGED-CONFIG " + managed_url + (interval ? " interval=" + std::to_string(interval) : "") \
+                 + " strict=" + std::string(strict ? "true" : "false") + "\n\n" + output_content;
+        break;
+    case "mellow"_hash:
+        writeLog(0, "Generate target: Mellow", LOG_LEVEL_INFO);
+
+        if(render_template(fetchFile(context.configs.mellowBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+        {
+            return base_content;
+        }
+        output_content = proxyToMellow(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
+
+        if(argUpload)
+            uploadGist("mellow", argUploadPath, output_content, true);
+        break;
+    case "sssub"_hash:
+        writeLog(0, "Generate target: SS Subscription", LOG_LEVEL_INFO);
+
+        if(render_template(fetchFile(context.configs.SSSubBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+        {
+            return base_content;
+        }
+        output_content = proxyToSSSub(base_content, nodes, ext);
+        if(argUpload)
+            uploadGist("sssub", argUploadPath, output_content, false);
+        break;
+    case "ss"_hash:
+        writeLog(0, "Generate target: SS", LOG_LEVEL_INFO);
+        output_content = proxyToSingle(nodes, 1, ext);
+        if(argUpload)
+            uploadGist("ss", argUploadPath, output_content, false);
+        break;
+    case "ssr"_hash:
+        writeLog(0, "Generate target: SSR", LOG_LEVEL_INFO);
+        output_content = proxyToSingle(nodes, 2, ext);
+        if(argUpload)
+            uploadGist("ssr", argUploadPath, output_content, false);
+        break;
+    case "v2ray"_hash:
+        writeLog(0, "Generate target: v2rayN", LOG_LEVEL_INFO);
+        output_content = proxyToSingle(nodes, 4, ext);
+        if(argUpload)
+            uploadGist("v2ray", argUploadPath, output_content, false);
+        break;
+    case "trojan"_hash:
+        writeLog(0, "Generate target: Trojan", LOG_LEVEL_INFO);
+        output_content = proxyToSingle(nodes, 8, ext);
+        if(argUpload)
+            uploadGist("trojan", argUploadPath, output_content, false);
+        break;
+    case "mixed"_hash:
+        writeLog(0, "Generate target: Standard Subscription", LOG_LEVEL_INFO);
+        output_content = proxyToSingle(nodes, 15, ext);
+        if(argUpload)
+            uploadGist("sub", argUploadPath, output_content, false);
+        break;
+    case "quan"_hash:
+        writeLog(0, "Generate target: Quantumult", LOG_LEVEL_INFO);
+        if(!ext.nodelist)
+        {
+            if(render_template(fetchFile(context.configs.quanBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+            {
+                return base_content;
+            }
+        }
+
+        output_content = proxyToQuan(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
+
+        if(argUpload)
+            uploadGist("quan", argUploadPath, output_content, false);
+        break;
+    case "quanx"_hash:
+        writeLog(0, "Generate target: Quantumult X", LOG_LEVEL_INFO);
+        if(!ext.nodelist)
+        {
+            if(render_template(fetchFile(context.configs.quanXBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+            {
+                return base_content;
+            }
+        }
+
+        output_content = proxyToQuanX(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
+
+        if(argUpload)
+            uploadGist("quanx", argUploadPath, output_content, false);
+        break;
+    case "loon"_hash:
+        writeLog(0, "Generate target: Loon", LOG_LEVEL_INFO);
+        if(!ext.nodelist)
+        {
+            if(render_template(fetchFile(context.configs.loonBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+            {
+                return base_content;
+            }
+        }
+
+        output_content = proxyToLoon(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
+
+        if(argUpload)
+            uploadGist("loon", argUploadPath, output_content, false);
+        break;
+    case "ssd"_hash:
+        writeLog(0, "Generate target: SSD", LOG_LEVEL_INFO);
+        output_content = proxyToSSD(nodes, argGroupName, subInfo, ext);
+        if(argUpload)
+            uploadGist("ssd", argUploadPath, output_content, false);
+        break;
+    case "singbox"_hash:
+        writeLog(0, "Generate target: sing-box", LOG_LEVEL_INFO);
+        if(!ext.nodelist)
+        {
+            if(render_template(fetchFile(context.configs.singBoxBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+            {
+                return base_content;
+            }
+        }
+
+        output_content = proxyToSingBox(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
+
+        if(argUpload)
+            uploadGist("singbox", argUploadPath, output_content, false);
+        break;
+    default:
+        writeLog(0, "Generate target: Unspecified", LOG_LEVEL_INFO);
+        return -1;
+    }
+    writeLog(0, "Generate completed.", LOG_LEVEL_INFO);
+    std::string  argFilename = getUrlArg(argument, "filename");
+    return output_content;
+}
+
+std::string _subconverter(convertcontext &context)
 {
     auto &argument = context.init_argument;
     std::string argTarget = getUrlArg(argument, "target"), argSurgeVer = getUrlArg(argument, "ver");
@@ -1957,7 +2252,7 @@ std::string subconverter(convertcontext &context)
     _getExtraSettings(argument, context, ext, tpl_args);
     load_external_configs(context, ext, lSimpleSubscription, tpl_args);
 
-    auto nodesResult = _getNodes(context, context.base_configs.includeRemarks, context.base_configs.excludeRemarks);
+    auto nodesResult = _getNodes(context, context.configs.includeRemarks, context.configs.excludeRemarks);
     if (!nodesResult) {
         return nodesResult.error();
     }
@@ -2071,11 +2366,11 @@ std::string subconverter(convertcontext &context)
     //     }
     //     else
     //     {
-    //         if(render_template(fetchFile(context.base_configs.clashBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //         if(render_template(fetchFile(context.configs.clashBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //         {
     //             return base_content;
     //         }
-    //         output_content = proxyToClash(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, argTarget == "clashr", ext);
+    //         output_content = proxyToClash(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, argTarget == "clashr", ext);
     //     }
 
     //     if(argUpload)
@@ -2094,11 +2389,11 @@ std::string subconverter(convertcontext &context)
     //     }
     //     else
     //     {
-    //         if(render_template(fetchFile(context.base_configs.surgeBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //         if(render_template(fetchFile(context.configs.surgeBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //         {
     //             return base_content;
     //         }
-    //         output_content = proxyToSurge(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, intSurgeVer, ext);
+    //         output_content = proxyToSurge(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, intSurgeVer, ext);
 
     //         if(argUpload)
     //             uploadGist("surge" + argSurgeVer, argUploadPath, output_content, true);
@@ -2111,11 +2406,11 @@ std::string subconverter(convertcontext &context)
     // case "surfboard"_hash:
     //     writeLog(0, "Generate target: Surfboard", LOG_LEVEL_INFO);
 
-    //     if(render_template(fetchFile(context.base_configs.surfboardBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //     if(render_template(fetchFile(context.configs.surfboardBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //     {
     //         return base_content;
     //     }
-    //     output_content = proxyToSurge(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, -3, ext);
+    //     output_content = proxyToSurge(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, -3, ext);
     //     if(argUpload)
     //         uploadGist("surfboard", argUploadPath, output_content, true);
 
@@ -2126,11 +2421,11 @@ std::string subconverter(convertcontext &context)
     // case "mellow"_hash:
     //     writeLog(0, "Generate target: Mellow", LOG_LEVEL_INFO);
 
-    //     if(render_template(fetchFile(context.base_configs.mellowBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //     if(render_template(fetchFile(context.configs.mellowBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //     {
     //         return base_content;
     //     }
-    //     output_content = proxyToMellow(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
+    //     output_content = proxyToMellow(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
 
     //     if(argUpload)
     //         uploadGist("mellow", argUploadPath, output_content, true);
@@ -2138,7 +2433,7 @@ std::string subconverter(convertcontext &context)
     // case "sssub"_hash:
     //     writeLog(0, "Generate target: SS Subscription", LOG_LEVEL_INFO);
 
-    //     if(render_template(fetchFile(context.base_configs.SSSubBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //     if(render_template(fetchFile(context.configs.SSSubBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //     {
     //         return base_content;
     //     }
@@ -2180,13 +2475,13 @@ std::string subconverter(convertcontext &context)
     //     writeLog(0, "Generate target: Quantumult", LOG_LEVEL_INFO);
     //     if(!ext.nodelist)
     //     {
-    //         if(render_template(fetchFile(context.base_configs.quanBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //         if(render_template(fetchFile(context.configs.quanBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //         {
     //             return base_content;
     //         }
     //     }
 
-    //     output_content = proxyToQuan(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
+    //     output_content = proxyToQuan(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
 
     //     if(argUpload)
     //         uploadGist("quan", argUploadPath, output_content, false);
@@ -2195,13 +2490,13 @@ std::string subconverter(convertcontext &context)
     //     writeLog(0, "Generate target: Quantumult X", LOG_LEVEL_INFO);
     //     if(!ext.nodelist)
     //     {
-    //         if(render_template(fetchFile(context.base_configs.quanXBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //         if(render_template(fetchFile(context.configs.quanXBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //         {
     //             return base_content;
     //         }
     //     }
 
-    //     output_content = proxyToQuanX(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
+    //     output_content = proxyToQuanX(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
 
     //     if(argUpload)
     //         uploadGist("quanx", argUploadPath, output_content, false);
@@ -2210,13 +2505,13 @@ std::string subconverter(convertcontext &context)
     //     writeLog(0, "Generate target: Loon", LOG_LEVEL_INFO);
     //     if(!ext.nodelist)
     //     {
-    //         if(render_template(fetchFile(context.base_configs.loonBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //         if(render_template(fetchFile(context.configs.loonBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //         {
     //             return base_content;
     //         }
     //     }
 
-    //     output_content = proxyToLoon(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
+    //     output_content = proxyToLoon(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
 
     //     if(argUpload)
     //         uploadGist("loon", argUploadPath, output_content, false);
@@ -2232,13 +2527,13 @@ std::string subconverter(convertcontext &context)
     //     writeLog(0, "Generate target: sing-box", LOG_LEVEL_INFO);
     //     if(!ext.nodelist)
     //     {
-    //         if(render_template(fetchFile(context.base_configs.singBoxBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
+    //         if(render_template(fetchFile(context.configs.singBoxBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
     //         {
     //             return base_content;
     //         }
     //     }
 
-    //     output_content = proxyToSingBox(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
+    //     output_content = proxyToSingBox(nodes, base_content, context.configs.rulesetContent, context.configs.customProxyGroups, ext);
 
     //     if(argUpload)
     //         uploadGist("singbox", argUploadPath, output_content, false);
@@ -2253,221 +2548,4 @@ std::string subconverter(convertcontext &context)
 }
 
 
-outcome::outcome<std::string, int> do_convert(convertcontext &context, std::vector<Proxy> &nodes, extra_settings &ext, std::string argTarget, template_args &tpl_args)
-{
-    auto argument = context.init_argument;
-    ProxyGroupConfigs dummy_group;
-    std::vector<RulesetContent> dummy_ruleset;
-    std::string managed_url = base64Decode(getUrlArg(argument, "profile_data"));
-    if(managed_url.empty())
-        managed_url = global.managedConfigPrefix + "/sub?" + joinArguments(argument);
-
-    //std::cerr<<"Generate target: ";
-    std::string proxy = parseProxy(global.proxyConfig);
-    std::string argUploadPath = getUrlArg(argument, "upload_path");
-    std::string base_content, output_content;
-    std::string argUpdateInterval = getUrlArg(argument, "interval");
-    int interval = !argUpdateInterval.empty() ? to_int(argUpdateInterval, global.updateInterval) : global.updateInterval;
-    tribool argUpload = getUrlArg(argument, "upload");
-    std::string argUpdateStrict = getUrlArg(argument, "strict");
-    bool strict = !argUpdateStrict.empty() ? argUpdateStrict == "true" : global.updateStrict;
-
-    std::string argGroupName = getUrlArg(argument, "group");
-    std::string argTarget = getUrlArg(argument, "target"), argSurgeVer = getUrlArg(argument, "ver");
-    int intSurgeVer = !argSurgeVer.empty() ? to_int(argSurgeVer, 3) : 3;
-
-    /// BUG? according to the original code, subInfo has never been set a value.
-    std::string subInfo;
-
-    switch(hash_(argTarget))
-    {
-    case "clash"_hash: case "clashr"_hash:
-        writeLog(0, argTarget == "clashr" ? "Generate target: ClashR" : "Generate target: Clash", LOG_LEVEL_INFO);
-        tpl_args.local_vars["clash.new_field_name"] = ext.clash_new_field_name ? "true" : "false";
-        if(ext.nodelist)
-        {
-            YAML::Node yamlnode;
-            proxyToClash(nodes, yamlnode, dummy_group, argTarget == "clashr", ext);
-            output_content = YAML::Dump(yamlnode);
-        }
-        else
-        {
-            if(render_template(fetchFile(context.base_configs.clashBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-            {
-                return base_content;
-            }
-            output_content = proxyToClash(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, argTarget == "clashr", ext);
-        }
-
-        if(argUpload)
-            uploadGist(argTarget, argUploadPath, output_content, false);
-        break;
-    case "surge"_hash:
-
-        writeLog(0, "Generate target: Surge " + std::to_string(intSurgeVer), LOG_LEVEL_INFO);
-
-        if(ext.nodelist)
-        {
-            output_content = proxyToSurge(nodes, base_content, dummy_ruleset, dummy_group, intSurgeVer, ext);
-
-            if(argUpload)
-                uploadGist("surge" + argSurgeVer + "list", argUploadPath, output_content, true);
-        }
-        else
-        {
-            if(render_template(fetchFile(context.base_configs.surgeBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-            {
-                return base_content;
-            }
-            output_content = proxyToSurge(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, intSurgeVer, ext);
-
-            if(argUpload)
-                uploadGist("surge" + argSurgeVer, argUploadPath, output_content, true);
-
-            if(global.writeManagedConfig && !global.managedConfigPrefix.empty())
-                output_content = "#!MANAGED-CONFIG " + managed_url + (interval ? " interval=" + std::to_string(interval) : "") \
-                 + " strict=" + std::string(strict ? "true" : "false") + "\n\n" + output_content;
-        }
-        break;
-    case "surfboard"_hash:
-        writeLog(0, "Generate target: Surfboard", LOG_LEVEL_INFO);
-
-        if(render_template(fetchFile(context.base_configs.surfboardBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-        {
-            return base_content;
-        }
-        output_content = proxyToSurge(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, -3, ext);
-        if(argUpload)
-            uploadGist("surfboard", argUploadPath, output_content, true);
-
-        if(global.writeManagedConfig && !global.managedConfigPrefix.empty())
-            output_content = "#!MANAGED-CONFIG " + managed_url + (interval ? " interval=" + std::to_string(interval) : "") \
-                 + " strict=" + std::string(strict ? "true" : "false") + "\n\n" + output_content;
-        break;
-    case "mellow"_hash:
-        writeLog(0, "Generate target: Mellow", LOG_LEVEL_INFO);
-
-        if(render_template(fetchFile(context.base_configs.mellowBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-        {
-            return base_content;
-        }
-        output_content = proxyToMellow(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
-
-        if(argUpload)
-            uploadGist("mellow", argUploadPath, output_content, true);
-        break;
-    case "sssub"_hash:
-        writeLog(0, "Generate target: SS Subscription", LOG_LEVEL_INFO);
-
-        if(render_template(fetchFile(context.base_configs.SSSubBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-        {
-            return base_content;
-        }
-        output_content = proxyToSSSub(base_content, nodes, ext);
-        if(argUpload)
-            uploadGist("sssub", argUploadPath, output_content, false);
-        break;
-    case "ss"_hash:
-        writeLog(0, "Generate target: SS", LOG_LEVEL_INFO);
-        output_content = proxyToSingle(nodes, 1, ext);
-        if(argUpload)
-            uploadGist("ss", argUploadPath, output_content, false);
-        break;
-    case "ssr"_hash:
-        writeLog(0, "Generate target: SSR", LOG_LEVEL_INFO);
-        output_content = proxyToSingle(nodes, 2, ext);
-        if(argUpload)
-            uploadGist("ssr", argUploadPath, output_content, false);
-        break;
-    case "v2ray"_hash:
-        writeLog(0, "Generate target: v2rayN", LOG_LEVEL_INFO);
-        output_content = proxyToSingle(nodes, 4, ext);
-        if(argUpload)
-            uploadGist("v2ray", argUploadPath, output_content, false);
-        break;
-    case "trojan"_hash:
-        writeLog(0, "Generate target: Trojan", LOG_LEVEL_INFO);
-        output_content = proxyToSingle(nodes, 8, ext);
-        if(argUpload)
-            uploadGist("trojan", argUploadPath, output_content, false);
-        break;
-    case "mixed"_hash:
-        writeLog(0, "Generate target: Standard Subscription", LOG_LEVEL_INFO);
-        output_content = proxyToSingle(nodes, 15, ext);
-        if(argUpload)
-            uploadGist("sub", argUploadPath, output_content, false);
-        break;
-    case "quan"_hash:
-        writeLog(0, "Generate target: Quantumult", LOG_LEVEL_INFO);
-        if(!ext.nodelist)
-        {
-            if(render_template(fetchFile(context.base_configs.quanBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-            {
-                return base_content;
-            }
-        }
-
-        output_content = proxyToQuan(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
-
-        if(argUpload)
-            uploadGist("quan", argUploadPath, output_content, false);
-        break;
-    case "quanx"_hash:
-        writeLog(0, "Generate target: Quantumult X", LOG_LEVEL_INFO);
-        if(!ext.nodelist)
-        {
-            if(render_template(fetchFile(context.base_configs.quanXBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-            {
-                return base_content;
-            }
-        }
-
-        output_content = proxyToQuanX(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
-
-        if(argUpload)
-            uploadGist("quanx", argUploadPath, output_content, false);
-        break;
-    case "loon"_hash:
-        writeLog(0, "Generate target: Loon", LOG_LEVEL_INFO);
-        if(!ext.nodelist)
-        {
-            if(render_template(fetchFile(context.base_configs.loonBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-            {
-                return base_content;
-            }
-        }
-
-        output_content = proxyToLoon(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
-
-        if(argUpload)
-            uploadGist("loon", argUploadPath, output_content, false);
-        break;
-    case "ssd"_hash:
-        writeLog(0, "Generate target: SSD", LOG_LEVEL_INFO);
-        output_content = proxyToSSD(nodes, argGroupName, subInfo, ext);
-        if(argUpload)
-            uploadGist("ssd", argUploadPath, output_content, false);
-        break;
-    case "singbox"_hash:
-        writeLog(0, "Generate target: sing-box", LOG_LEVEL_INFO);
-        if(!ext.nodelist)
-        {
-            if(render_template(fetchFile(context.base_configs.singBoxBase, proxy, global.cacheConfig), tpl_args, base_content, global.templatePath) != 0)
-            {
-                return base_content;
-            }
-        }
-
-        output_content = proxyToSingBox(nodes, base_content, context.base_configs.rulesetContent, context.base_configs.customProxyGroups, ext);
-
-        if(argUpload)
-            uploadGist("singbox", argUploadPath, output_content, false);
-        break;
-    default:
-        writeLog(0, "Generate target: Unspecified", LOG_LEVEL_INFO);
-        return -1;
-    }
-    writeLog(0, "Generate completed.", LOG_LEVEL_INFO);
-    std::string  argFilename = getUrlArg(argument, "filename");
-    return output_content;
-} 
+ 

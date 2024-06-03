@@ -16,6 +16,12 @@ struct strICaseComp
                                                 return ::tolower(c1) < ::tolower(c2);
                                             });
     }
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive(); // serialize things by passing them to the archive
+    }
 };
 
 using string_icase_map = std::map<std::string, std::string, strICaseComp>;

@@ -36,19 +36,37 @@ struct base_configs
         this->customProxyGroups = global.customProxyGroups;
         this->includeRemarks = global.includeRemarks;
         this->excludeRemarks = global.excludeRemarks;
-        this->rulesetContent;
+        this->rulesetContent = global.rulesetsContent;
     };
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive(
+            
+            clashBase, surgeBase, mellowBase, surfboardBase,
+            quanBase, quanXBase, loonBase, SSSubBase, singBoxBase,
+            customRulesets, customProxyGroups, includeRemarks, 
+            excludeRemarks, rulesetContent
+        ); // serialize things by passing them to the archive
+    }
 };
 
 struct convertcontext
 {
     string_multimap init_argument;
-    base_configs base_configs;
+    base_configs configs;
     string_icase_map request_header;
     tribool argAddEmoji;
     tribool argRemoveEmoji;
 
     convertcontext() = default;
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive(init_argument, configs, request_header, argAddEmoji, argRemoveEmoji ); // serialize things by passing them to the archive
+    }
 };
 
 

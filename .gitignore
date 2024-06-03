@@ -7,3 +7,5 @@ deps
 build
 CMakeUserPresets.json
 */**/CMakeFiles
+generated
+CMakePresets.json

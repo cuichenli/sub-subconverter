@@ -22,6 +22,12 @@ struct RulesetConfig
     {
         return Group == r.Group && Url == r.Url && Interval == r.Interval;
     }
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive( Group, Url, Interval ); // serialize things by passing them to the archive
+    }
 };
 
 using RulesetConfigs = std::vector<RulesetConfig>;

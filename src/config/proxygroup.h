@@ -58,6 +58,12 @@ struct ProxyGroupConfig
         }
         return "";
     }
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive(Name, Type, Proxies, UsingProvider, Url, Interval, Timeout, Tolerance, Strategy, Lazy, DisableUdp, Persistent, EvaluateBeforeUse); // serialize things by passing them to the archive
+    }
 };
 
 using ProxyGroupConfigs = std::vector<ProxyGroupConfig>;

@@ -101,6 +101,12 @@ public:
 
     void clear() { value_ = indeterminate; }
 
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive( value_ ); // serialize things by passing them to the archive
+    }
+
 private:
     enum value_type : char { indeterminate = 0, false_value = 1, true_value = 2 };
     value_type value_;

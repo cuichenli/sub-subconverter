@@ -25,8 +25,14 @@ struct RulesetContent
     std::string rule_path;
     std::string rule_path_typed;
     int rule_type = RULESET_SURGE;
-    std::shared_future<std::string> rule_content;
+    std::string rule_content;
     int update_interval = 0;
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+       archive(rule_group, rule_path, rule_path_typed, rule_type, rule_content, update_interval); // serialize things by passing them to the archive
+    }
 };
 
 std::string convertRuleset(const std::string &content, int type);
