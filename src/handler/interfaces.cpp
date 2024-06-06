@@ -1960,6 +1960,7 @@ void load_external_configs(convertcontext &context, extra_settings &ext, bool lS
             lConfigs.rulesetContent = global.rulesetsContent;
         }
     }
+    context.configs = lConfigs;
 }
 
 // EXTERN EMSCRIPTEN_KEEPALIVE outcome::outcome<std::string, int> test() {
