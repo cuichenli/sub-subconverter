@@ -46,7 +46,6 @@
 #include "convertcontext.h"
 
 namespace outcome = OUTCOME_V2_NAMESPACE;
-namespace data = cista::raw;
 
 #ifdef __cplusplus
 #define EXTERN extern "C"
@@ -2027,7 +2026,7 @@ void load_external_configs(convertcontext &context, extra_settings &ext, bool lS
 //     return 0;
 // }
 
-outcome::outcome<std::string, int> do_convert(convertcontext &context, std::vector<Proxy> &nodes, extra_settings &ext, std::string argTarget, template_args &tpl_args)
+outcome::outcome<std::string, int> _do_convert(convertcontext &context, std::vector<Proxy> &nodes, extra_settings &ext, std::string argTarget, template_args &tpl_args)
 {
     auto argument = context.init_argument;
     ProxyGroupConfigs dummy_group;
@@ -2246,6 +2245,47 @@ outcome::outcome<std::string, int> do_convert(convertcontext &context, std::vect
     return output_content;
 }
 
+int wasmGetNodes(convertcontext &context)
+{
+    auto &argument = context.init_argument;
+    std::string argTarget = getUrlArg(argument, "target"), argSurgeVer = getUrlArg(argument, "ver");
+    int intSurgeVer = !argSurgeVer.empty() ? to_int(argSurgeVer, 3) : 3;
+    bool lSimpleSubscription = isSimpleSubscription(argTarget);
+
+    template_args tpl_args = get_tpl_args(argument, argTarget, intSurgeVer);
+
+    extra_settings ext = extra_settings();
+    _getExtraSettings(argument, context, ext, tpl_args);
+    load_external_configs(context, ext, lSimpleSubscription, tpl_args);
+
+    auto nodesResult = _getNodes(context, context.configs.includeRemarks, context.configs.excludeRemarks);
+    if (!nodesResult) {
+        return -1;
+    }
+    auto nodes = nodesResult.value();
+
+    //check custom group name
+    std::string argGroupName = getUrlArg(argument, "group");
+    if(!argGroupName.empty())
+        for(Proxy &x : nodes)
+            x.Group = argGroupName;
+
+    //do pre-process now
+    preprocessNodes(nodes, ext);
+
+    std::ofstream nodesOut("./nodes.json");
+    cereal::JSONOutputArchive nodesArchive(nodesOut);
+    nodesArchive(CEREAL_NVP(nodes));
+
+    std::ofstream extOut("./ext.out");
+    cereal::BinaryOutputArchive extArchive(extOut);
+    extArchive(ext);
+
+    std::ofstream contextOut("./context.out");
+    cereal::BinaryOutputArchive contextArchive(contextOut);
+    contextArchive(context);
+}
+
 std::string _subconverter(convertcontext &context)
 {
     auto &argument = context.init_argument;
@@ -2333,7 +2373,7 @@ std::string _subconverter(convertcontext &context)
         index++;
     }
     */
-   auto result = do_convert(context, nodes, ext, argTarget, tpl_args);
+   auto result = _do_convert(context, nodes, ext, argTarget, tpl_args);
    if (result.has_error()) {
     return "";
    } 
@@ -2555,4 +2595,146 @@ std::string _subconverter(convertcontext &context)
 }
 
 
- 
+ int _simpleGenerator()
+{
+        //std::cerr<<"\nReading generator configuration...\n";
+    writeLog(0, "Reading generator configuration...", LOG_LEVEL_INFO);
+    std::string config = fileGet("generate.ini"), path, profile, content;
+    if(config.empty())
+    {
+        //std::cerr<<"Generator configuration not found or empty!\n";
+        writeLog(0, "Generator configuration not found or empty!", LOG_LEVEL_ERROR);
+        return -1;
+    }
+
+    INIReader ini;
+    if(ini.parse(config) != INIREADER_EXCEPTION_NONE)
+    {
+        //std::cerr<<"Generator configuration broken! Reason:"<<ini.get_last_error()<<"\n";
+        writeLog(0, "Generator configuration broken! Reason:" + ini.get_last_error(), LOG_LEVEL_ERROR);
+        return -2;
+    }
+    //std::cerr<<"Read generator configuration completed.\n\n";
+    writeLog(0, "Read generator configuration completed.\n", LOG_LEVEL_INFO);
+
+    string_array sections = ini.get_section_names();
+    // TOOD: this could be used to handle the request to worker
+    if(!global.generateProfiles.empty())
+    {
+        //std::cerr<<"Generating with specific artifacts: \""<<gen_profile<<"\"...\n";
+        writeLog(0, "Generating with specific artifacts: \"" + global.generateProfiles + "\"...", LOG_LEVEL_INFO);
+        string_array targets = split(global.generateProfiles, ","), new_targets;
+        for(std::string &x : targets)
+        {
+            x = trim(x);
+            if(std::find(sections.cbegin(), sections.cend(), x) != sections.cend())
+                new_targets.emplace_back(std::move(x));
+            else
+            {
+                //std::cerr<<"Artifact \""<<x<<"\" not found in generator settings!\n";
+                writeLog(0, "Artifact \"" + x + "\" not found in generator settings!", LOG_LEVEL_ERROR);
+                return -3;
+            }
+        }
+        sections = new_targets;
+        sections.shrink_to_fit();
+    }
+    else
+        //std::cerr<<"Generating all artifacts...\n";
+        writeLog(0, "Generating all artifacts...", LOG_LEVEL_INFO);
+
+    string_multimap allItems;
+    std::string proxy = parseProxy(global.proxySubscription);
+    // ASSUMPTION: THERE IS ONLY ONE SECTION
+    for(std::string &x : sections)
+    {
+        Request request;
+        Response response;
+        string_multimap argument;
+        response.status_code = 200;
+        //std::cerr<<"Generating artifact '"<<x<<"'...\n";
+        writeLog(0, "Generating artifact '" + x + "'...", LOG_LEVEL_INFO);
+        ini.enter_section(x);
+        if(ini.item_exist("path"))
+            path = ini.get("path");
+        else
+        {
+            //std::cerr<<"Artifact '"<<x<<"' output path missing! Skipping...\n\n";
+            writeLog(0, "Artifact '" + x + "' output path missing! Skipping...\n", LOG_LEVEL_ERROR);
+            continue;
+        }
+
+        // TODO: UPDATE this part for handling profile
+        if(ini.item_exist("profile"))
+        {
+            profile = ini.get("profile");
+            request.argument.emplace("name", profile);
+            request.argument.emplace("token", global.accessToken);
+            request.argument.emplace("expand", "true");
+            content = getProfile(request, response);
+        }
+        else
+        {
+            if(ini.get_bool("direct"))
+            {
+                std::string url = ini.get("url");
+                content = fetchFile(url, proxy, global.cacheSubscription);
+                if(content.empty())
+                {
+                    //std::cerr<<"Artifact '"<<x<<"' generate ERROR! Please check your link.\n\n";
+                    writeLog(0, "Artifact '" + x + "' generate ERROR! Please check your link.\n", LOG_LEVEL_ERROR);
+                    if(sections.size() == 1)
+                        return -1;
+                }
+                // add UTF-8 BOM
+                fileWrite(path, "\xEF\xBB\xBF" + content, true);
+                return 0;
+            }
+            ini.get_items(allItems);
+            allItems.emplace("expand", "true");
+            for(auto &y : allItems)
+            {
+                if(y.first == "path")
+                    continue;
+                argument.emplace(y.first, y.second);
+            }
+            convertcontext context;
+            context.init_argument = argument;
+            content = wasmGetNodes(context);
+            // fileWrite("./output.conf", "\xEF\xBB\xBF" + content, true);
+            // writeLog(0, "all done", LOG_LEVEL_INFO);
+        }
+    }
+}
+
+void wasmConvert()
+{
+    std::ifstream nodesIn("./nodes.json");
+    cereal::JSONInputArchive loadNodes(nodesIn);
+    std::vector<Proxy> nodes;
+    loadNodes(nodes);
+
+    std::ifstream extIn("./ext.out");
+    cereal::BinaryInputArchive loadExt(extIn);
+    extra_settings ext;
+    loadExt(ext);
+
+    std::ifstream contextIn("./context.out");
+    cereal::BinaryInputArchive loadContext(contextIn);
+    convertcontext context;
+    loadContext(context);
+
+    auto argument = context.init_argument;
+    std::string argTarget = getUrlArg(argument, "target"), argSurgeVer = getUrlArg(argument, "ver");
+    int intSurgeVer = !argSurgeVer.empty() ? to_int(argSurgeVer, 3) : 3;
+    template_args tpl_args = get_tpl_args(argument, argTarget, intSurgeVer);
+
+    auto result = _do_convert(context, nodes, ext, argTarget, tpl_args);
+    if (result.has_error()) {
+     writeLog(0, "some error", LOG_TYPE_ERROR);
+   } 
+   else 
+   {
+    writeLog(0, result.value(), LOG_TYPE_INFO);
+   }
+}

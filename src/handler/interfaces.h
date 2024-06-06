@@ -14,6 +14,9 @@ std::string parseProxy(const std::string &source);
 void refreshRulesets(RulesetConfigs &ruleset_list, std::vector<RulesetContent> &rca);
 void readConf();
 int simpleGenerator();
+int _simpleGenerator();
+void wasmConvert();
+
 std::string convertRuleset(const std::string &content, int type);
 
 std::string getProfile(RESPONSE_CALLBACK_ARGS);
