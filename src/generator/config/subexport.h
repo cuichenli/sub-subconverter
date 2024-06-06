@@ -45,6 +45,19 @@ struct extra_settings
     extra_settings(const extra_settings&) = delete;
     extra_settings(extra_settings&&) = delete;
 
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive(
+            enable_rule_generator, overwrite_original_rules, rename_array, 
+            emoji_array, add_emoji, remove_emoji, append_proxy_type, nodelist, 
+            sort_flag, filter_deprecated, clash_new_field_name, clash_script, 
+            surge_ssr_path, managed_config_prefix, quanx_dev_id, udp, tfo, 
+            skip_cert_verify, tls13, clash_classical_ruleset, sort_script, 
+            clash_proxies_style, clash_proxy_groups_style, authorized
+            ); 
+    }
+
 #ifndef NO_JS_RUNTIME
     // qjs::Runtime *js_runtime = nullptr;
     // qjs::Context *js_context = nullptr;

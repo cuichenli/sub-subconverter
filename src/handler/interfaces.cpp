@@ -8,8 +8,14 @@
 #include <yaml-cpp/yaml.h>
 
 #include <outcome.hpp>
-#include <cista.h>
 #include "../generated/messages.pb.h"
+
+#define CEREAL_RAPIDJSON_NAMESPACE cereal_rapidjson
+#include <cereal/archives/json.hpp>
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/map.hpp>
 // #include <emscripten/emscripten.h>
 
 

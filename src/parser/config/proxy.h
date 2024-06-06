@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <cereal/cereal.hpp>
 
 #include "utils/tribool.h"
 
@@ -99,6 +100,23 @@ struct Proxy
     uint16_t KeepAlive = 0;
     String TestUrl;
     String ClientId;
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive(
+            // Type
+            CEREAL_NVP(Type), CEREAL_NVP(Id), CEREAL_NVP(GroupId), CEREAL_NVP(Group), CEREAL_NVP(Remark), CEREAL_NVP(Hostname), CEREAL_NVP(Port),
+            CEREAL_NVP(Username), CEREAL_NVP(Username), CEREAL_NVP(Password), CEREAL_NVP(EncryptMethod), CEREAL_NVP(Plugin), 
+            CEREAL_NVP(PluginOption), CEREAL_NVP(Protocol), CEREAL_NVP(ProtocolParam), CEREAL_NVP(OBFS), CEREAL_NVP(OBFSParam), 
+            CEREAL_NVP(UserId), CEREAL_NVP(AlterId), CEREAL_NVP(TransferProtocol), CEREAL_NVP(FakeType), 
+            CEREAL_NVP(TLSSecure), CEREAL_NVP(Host), CEREAL_NVP(Path), CEREAL_NVP(Edge), CEREAL_NVP(QUICSecure), CEREAL_NVP(QUICSecret), 
+            CEREAL_NVP(UDP), CEREAL_NVP(TCPFastOpen), CEREAL_NVP(AllowInsecure), CEREAL_NVP(TLS13), CEREAL_NVP(SnellVersion), 
+            CEREAL_NVP(ServerName), CEREAL_NVP(SelfIP), CEREAL_NVP(SelfIPv6), CEREAL_NVP(PublicKey), CEREAL_NVP(PrivateKey), 
+            CEREAL_NVP(PreSharedKey), CEREAL_NVP(DnsServers), CEREAL_NVP(Mtu), CEREAL_NVP(AllowedIPs), 
+            CEREAL_NVP(KeepAlive), CEREAL_NVP(TestUrl), CEREAL_NVP(ClientId)
+        ); 
+    }
 };
 
 #define SS_DEFAULT_GROUP "SSProvider"

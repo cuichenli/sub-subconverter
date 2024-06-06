@@ -8,6 +8,12 @@ struct RegexMatchConfig
     String Match;
     String Replace;
     String Script;
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+        archive(Match, Replace, Script); 
+    }
 };
 
 using RegexMatchConfigs = std::vector<RegexMatchConfig>;
