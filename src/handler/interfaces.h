@@ -8,6 +8,13 @@
 #include "config/ruleset.h"
 #include "generator/config/subexport.h"
 #include "server/webserver.h"
+#include <emscripten/emscripten.h>
+
+#ifdef __cplusplus
+#define EXTERN extern "C"
+#else
+#define EXTERN
+#endif
 
 std::string parseProxy(const std::string &source);
 

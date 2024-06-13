@@ -16,8 +16,10 @@
 #include <cereal/types/vector.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/map.hpp>
-// #include <emscripten/emscripten.h>
-
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#include <emscripten/bind.h>
+#endif
 
 #include "config/binding.h"
 #include "generator/config/nodemanip.h"
@@ -47,11 +49,6 @@
 
 namespace outcome = OUTCOME_V2_NAMESPACE;
 
-#ifdef __cplusplus
-#define EXTERN extern "C"
-#else
-#define EXTERN
-#endif
 
 #ifdef ENABLE_WEB_SERVER
 extern WebServer webServer;
@@ -2284,6 +2281,7 @@ int wasmGetNodes(convertcontext &context)
     std::ofstream contextOut("./context.out");
     cereal::BinaryOutputArchive contextArchive(contextOut);
     contextArchive(context);
+    return 0;
 }
 
 std::string _subconverter(convertcontext &context)
@@ -2701,8 +2699,6 @@ std::string _subconverter(convertcontext &context)
             convertcontext context;
             context.init_argument = argument;
             content = wasmGetNodes(context);
-            // fileWrite("./output.conf", "\xEF\xBB\xBF" + content, true);
-            // writeLog(0, "all done", LOG_LEVEL_INFO);
         }
     }
 }
@@ -2735,6 +2731,14 @@ void wasmConvert()
    } 
    else 
    {
-    writeLog(0, result.value(), LOG_TYPE_INFO);
+    writeLog(0, "finished", LOG_LEVEL_INFO);
+    writeLog(0, result.value(), LOG_LEVEL_INFO);
    }
 }
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_BINDINGS(interfaces) {
+  emscripten::function("_simpleGenerator", &_simpleGenerator);
+  emscripten::function("wasmConvert", &wasmConvert);
+}
+#endif
