@@ -74,7 +74,25 @@ std::shared_future<std::string> fetchFileAsync(const std::string &path, const st
     return retVal;
 }
 
+std::string fetchFileSync(const std::string &path, const std::string &proxy, int cache_ttl, bool find_local, bool async)
+{
+    std::string retVal;
+    /*if(vfs::vfs_exist(path))
+        retVal = std::async(std::launch::async, [path](){return vfs::vfs_get(path);});
+    else */if(find_local && fileExist(path, true))
+        retVal = fileGet(path, true);
+    else if(isLink(path))
+        retVal =  webGet(path, proxy, cache_ttl);
+
+    return retVal;
+}
+
 std::string fetchFile(const std::string &path, const std::string &proxy, int cache_ttl, bool find_local)
 {
+
+#ifdef __EMSCRIPTEN__
+    return fetchFileSync(path, proxy, cache_ttl, find_local, false);
+#else
     return fetchFileAsync(path, proxy, cache_ttl, find_local, false).get();
+#endif
 }
