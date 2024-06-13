@@ -17,6 +17,12 @@
 #include "version.h"
 #include "webget.h"
 
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#include <emscripten/val.h>
+#endif
+
 #ifdef _WIN32
 #ifndef _stat
 #define _stat stat
@@ -297,6 +303,27 @@ std::string buildSocks5ProxyString(const std::string &addr, int port, const std:
     return proxystr;
 }
 
+#ifdef __EMSCRIPTEN__
+
+
+EM_ASYNC_JS(emscripten::EM_VAL, do_fetch, (const char *url), {
+    // TODO: fill in more detail
+  url = UTF8ToString(url);
+  const response = await fetch(url);
+  return Emval.toHandle(await response.text());
+});
+
+
+void fetch(const FetchArgument &argument, FetchResult &result)
+{
+    emscripten::val response = emscripten::val::take_ownership(do_fetch( argument.url.c_str()));
+    auto body = response.as<std::string>();
+    *result.content = body;
+    auto status_code = 200;
+    *result.status_code = status_code;
+}
+#endif
+
 std::string webGet(const std::string &url, const std::string &proxy, unsigned int cache_ttl, std::string *response_headers, string_icase_map *request_headers)
 {
     int return_code = 0;
@@ -332,7 +359,12 @@ std::string webGet(const std::string &url, const std::string &proxy, unsigned in
         else
             writeLog(0, "CACHE NOT EXIST: '" + url + "', creating new cache.");
         //content = curlGet(url, proxy, response_headers, return_code); // try to fetch data
+#ifdef __EMSCRIPTEN__
+        fetch(argument, fetch_res);
+#else
         curlGet(argument, fetch_res);
+#endif
+        writeLog(0, "return_code" + std::to_string(return_code) + " status: " + std::to_string(*fetch_res.status_code));
         if(return_code == 200) // success, save new cache
         {
             //guarded_mutex guard(cache_rw_lock);
@@ -360,7 +392,11 @@ std::string webGet(const std::string &url, const std::string &proxy, unsigned in
         return content;
     }
     //return curlGet(url, proxy, response_headers, return_code);
+#ifdef __EMSCRIPTEN__
+    fetch(argument, fetch_res);
+#else
     curlGet(argument, fetch_res);
+#endif
     return content;
 }
 
