@@ -3,6 +3,7 @@
 #include <sstream>
 #include <filesystem>
 #include <inja.hpp>
+#include <sys/stat.h>
 #include <nlohmann/json.hpp>
 
 #include "handler/interfaces.h"
@@ -79,15 +80,14 @@ std::string template_webGet(inja::Arguments &args)
 
 int render_template(const std::string &content, const template_args &vars, std::string &output, const std::string &include_scope)
 {
+    auto current_path =  std::filesystem::current_path();
+    auto tmp_path = current_path /  include_scope;
+    struct stat sb;
     std::string absolute_scope;
-    try
-    {
-        if(!include_scope.empty())
-            absolute_scope = std::filesystem::canonical(include_scope).string();
-    }
-    catch(std::exception &e)
-    {
-        writeLog(0, e.what(), LOG_LEVEL_ERROR);
+    if (stat(tmp_path.c_str(), &sb) == 0) {
+        absolute_scope = tmp_path;
+    } else {
+        writeLog(0, "path: " + tmp_path.string() + " does not exit", LOG_LEVEL_ERROR);
     }
     nlohmann::json data;
     for(auto &x : vars.global_vars)
